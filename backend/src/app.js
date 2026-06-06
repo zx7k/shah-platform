@@ -8,7 +8,6 @@ const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const Redis = require('ioredis');
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -26,21 +25,18 @@ const server = http.createServer(app);
 // Security
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: process.env.CLIENT_URL || '*',
   credentials: true,
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 
-// Redis
-const redisClient = new Redis(process.env.REDIS_URL);
+// Redis client (for Socket.io only)
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
-// Global rate limit
+// Global rate limiter (in‑memory)
 const limiter = rateLimit({
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-  }),
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
@@ -58,10 +54,10 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/bans', banRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Socket.io
+// Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: process.env.CLIENT_URL || '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -87,6 +83,7 @@ io.on('connection', (socket) => {
   require('./socket/index')(io, socket);
 });
 
+// Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
