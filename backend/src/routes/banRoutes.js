@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const ctrl = require('../controllers/banController');
+const { authenticate, requireAdmin } = require('../middleware/auth');
+router.post('/', authenticate, requireAdmin, ctrl.banUser);
+router.put('/:banId/unban', authenticate, requireAdmin, ctrl.unbanUser);
+router.get('/', authenticate, requireAdmin, ctrl.getBans);
+router.post('/:banId/appeal', authenticate, ctrl.appealBan);
+router.put('/:banId/appeal', authenticate, requireAdmin, ctrl.resolveAppeal);
+router.get('/appeals', authenticate, requireAdmin, ctrl.getAppeals);
+module.exports = router;
